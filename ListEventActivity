@@ -1,0 +1,376 @@
+package com.suupahiro.crmumkm;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
+import android.text.Html;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.Toast;
+
+import com.suupahiro.crmumkm.attachmentviewer.model.MediaAttachment;
+import com.suupahiro.crmumkm.model.Event;
+import com.suupahiro.crmumkm.providers.wordpress.PostItem;
+import com.suupahiro.crmumkm.providers.wordpress.api.WordpressCategoriesLoader;
+import com.suupahiro.crmumkm.providers.wordpress.api.WordpressGetTaskInfo;
+import com.suupahiro.crmumkm.providers.wordpress.api.WordpressPostsLoader;
+import com.suupahiro.crmumkm.providers.wordpress.api.WordpressPostsTask;
+import com.suupahiro.crmumkm.util.Helper;
+import com.suupahiro.crmumkm.util.Log;
+import com.suupahiro.crmumkm.util.cRecyclerTouchListener;
+import com.suupahiro.crmumkm.util.cWPRestAPI;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+public class ListEventActivity extends AppCompatActivity {
+
+    private Activity mAct;
+
+    private List<Event> eventList = new ArrayList<>();
+    private RecyclerView recyclerView;
+    private ListEventAdapter mAdapter;
+
+    //Keeping track of the WP
+    private WordpressGetTaskInfo mInfo;
+    private String urlSession;
+
+    //The arguments we started this fragment with
+    private String[] arguments = {"crmumkm.com", "Acara"};
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_list_event);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+
+        mAdapter = new ListEventAdapter(eventList);
+        RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(getApplicationContext());
+        recyclerView.setLayoutManager(mLayoutManager);
+        recyclerView.setItemAnimator(new DefaultItemAnimator());
+        recyclerView.setAdapter(mAdapter);
+
+        mInfo = new WordpressGetTaskInfo(recyclerView, this, arguments[0], false);
+
+        //prepareMovieData();
+        //getPosts();
+        //new cWPRestAPI("GET", mInfo).execute();
+        //preparePostData();
+
+        new processAPI("GET", mInfo).execute();
+
+        /*
+        AdapterView.OnItemClickListener listener = new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> a, View v, int position,
+                                    long id) {
+                Intent intent = new Intent(mAct, DetailEventActivity.class);
+                startActivity(intent);
+            }
+        };*/
+        recyclerView.addOnItemTouchListener(new cRecyclerTouchListener(getApplicationContext(), recyclerView, new cRecyclerTouchListener.ClickListener() {
+            @Override
+            public void onClick(View view, int position) {
+                Event movie = eventList.get(position);
+                Toast.makeText(getApplicationContext(), movie.getTitle() + " is selected!", Toast.LENGTH_SHORT).show();
+                //Intent intent = new Intent(mAct, DetailEventActivity.class);
+                //startActivity(intent);
+                //startActivity(new Intent(mAct, DetailEventActivity.class));
+            }
+
+            @Override
+            public void onLongClick(View view, int position) {
+
+            }
+        }));
+
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show();
+            }
+        });
+    }
+
+
+    public void getPosts() {
+        if (arguments.length > 1 && !arguments[1].equals("")) {
+            //Load category posts
+            urlSession = WordpressPostsLoader.getCategoryPosts(mInfo, arguments[1]);
+        } else {
+            //Load recent posts
+            urlSession = WordpressPostsLoader.getRecentPosts(mInfo);
+            //Load category bubbles
+            new WordpressCategoriesLoader(mInfo).load();
+        }
+
+        preparePostData();
+    }
+
+    private void preparePostData() {
+        Event movie = new Event(mInfo.posts.get(1).getTitle(),mInfo.posts.get(1).getAuthor(), "2015");
+        eventList.add(movie);
+
+        mAdapter.notifyDataSetChanged();
+    }
+
+    private void prepareMovieData() {
+        Event movie = new Event("Mad Max: Fury Road", "Action & Adventure", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Inside Out", "Animation, Kids & Family", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Star Wars: Episode VII - The Force Awakens", "Action", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Mad Max: Fury Road", "Action & Adventure", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Inside Out", "Animation, Kids & Family", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Star Wars: Episode VII - The Force Awakens", "Action", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Mad Max: Fury Road", "Action & Adventure", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Inside Out", "Animation, Kids & Family", "2015");
+        eventList.add(movie);
+
+        movie = new Event("Star Wars: Episode VII - The Force Awakens", "Action", "2015");
+        eventList.add(movie);
+
+        mAdapter.notifyDataSetChanged();
+    }
+
+    public class processAPI extends AsyncTask<String, String, ArrayList<PostItem>> {
+
+        //Jetpack
+        private final String JETPACK_BASE = "https://public-api.wordpress.com/rest/v1.1/sites/";
+        private final String JETPACK_FIELDS = "&fields=ID,author,title,URL,content,discussion,featured_image,post_thumbnail,tags,discussion,date,attachments";
+        private final SimpleDateFormat JETPACK_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault());
+
+        private final String URL_REST_API = "http://crmumkm.com/wp-json/wp/v2/users";
+
+        private WordpressGetTaskInfo info;
+
+        private String method;
+
+        // [F] add this for BEARER AUTHENTICATION
+        private final String BEARER_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9jcm11bWttLmNvbSIsImlhdCI6MTUzMDkxNDI2MCwibmJmIjoxNTMwOTE0MjYwLCJleHAiOjE1MzE1MTkwNjAsImRhdGEiOnsidXNlciI6eyJpZCI6IjEifX19.17kSDmNY1iEPsQskW7qksWzYZL5JNR9amuhRGFUKMwY";
+        private final Boolean IS_USE_BEARER = true;
+
+        public processAPI(String methodType, WordpressGetTaskInfo info ){
+            this.method = methodType;
+            //this.url = url;
+            this.info = info;
+        }
+
+        @Override
+        protected ArrayList<PostItem> doInBackground(String... param) {
+            String url = "https://public-api.wordpress.com/rest/v1.1/sites/crmumkm.com/posts/?number=15&category=acara&page=";
+            return parsePostsFromUrl(info, url);
+        }
+
+        @Override
+        protected void onPreExecute() {
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<PostItem> result) {
+
+            super.onPostExecute(result);
+            //Event movie = new Event(mInfo.posts.get(1).getTitle(),mInfo.posts.get(1).getAuthor(), "2015");
+            if (result != null) {
+                Event movie = new Event(result.get(1).getTitle(), result.get(1).getAuthor(), "2018");
+                eventList.add(movie);
+
+                mAdapter.notifyDataSetChanged();
+            }
+
+
+
+
+            //Check if the response was null
+        /*if (null != result) {
+            callback.postsLoaded(result);
+        } else {
+            callback.postsFailed();
+        }*/
+        }
+
+        private String postJSONItem(String url, String jsonItem){
+            // Making HTTP request
+            Log.v("INFO", "Requesting: " + url);
+
+            String result = "";
+            //StringBuffer chaine = new StringBuffer("");
+            try {
+                URL urlCon = new URL(url);
+
+                //Open a connection
+                HttpURLConnection connection = (HttpURLConnection) urlCon
+                        .openConnection();
+                connection.setRequestProperty("User-Agent", "CRMUMKM (Android)");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("Accept", "application/json");
+                connection.setRequestMethod("POST");
+                connection.setDoInput(true);
+                connection.setDoOutput(true);
+                // [F} add this
+                if (this.IS_USE_BEARER) {
+                    connection.setRequestProperty("authorization", "Bearer " + this.BEARER_TOKEN);
+                }
+                connection.connect();
+
+                OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
+                wr.write(jsonItem);
+                wr.flush();
+
+
+                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                    //info.pages = connection.getHeaderFieldInt("X-WP-TotalPages", 1);
+                }
+
+                result = connection.getResponseCode() + " " + connection.getResponseMessage();
+                Log.i("INFO RESPONSE", result);
+                //Get the stream from the connection and read it
+            /*InputStream inputStream = connection.getInputStream();
+            BufferedReader rd = new BufferedReader(new InputStreamReader(
+                    inputStream));
+            String line = "";
+            while ((line = rd.readLine()) != null) {
+                chaine.append(line);
+            }*/
+
+            } catch (IOException e) {
+                // writing exception to log
+                Log.e("postJSONItem", "Error parsing JSON. Printing stacktrace now");
+                Log.printStackTrace(e);
+            }
+            return  result;
+        }
+
+        public ArrayList<PostItem> parsePostsFromUrl(WordpressGetTaskInfo info, String url) {
+            //Get JSON
+            JSONObject json = Helper.getJSONObjectFromUrl(url);
+            if (json == null) return null;
+
+            ArrayList<PostItem> result = null;
+            try {
+
+                info.pages = json.getInt("found") / WordpressPostsTask.PER_PAGE + (json.getInt("found") % WordpressPostsTask.PER_PAGE == 0 ? 0 : 1);
+
+                // parsing json object
+                if (json.has("posts")) {
+                    JSONArray posts = json.getJSONArray("posts");
+
+                    result = new ArrayList<PostItem>();
+
+                    for (int i = 0; i < posts.length(); i++) {
+                        try {
+                            JSONObject post = posts.getJSONObject(i);
+                            PostItem item = itemFromJsonObject(post);
+
+                            if (!item.getId().equals(info.ignoreId)) {
+                                result.add(item);
+                            }
+                        } catch (Exception e) {
+                            Log.v("INFO", "Item " + i + " of " + posts.length()
+                                    + " has been skipped due to exception!");
+                            Log.printStackTrace(e);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.printStackTrace(e);
+            }
+
+            return result;
+        }
+
+        public PostItem itemFromJsonObject(JSONObject post) throws JSONException {
+            PostItem item = new PostItem(PostItem.PostType.JETPACK);
+
+            item.setId(post.getLong("ID"));
+            item.setAuthor(post.getJSONObject("author").getString("name"));
+            try {
+                item.setDate(JETPACK_DATE_FORMAT.parse(post.getString("date")));
+            } catch (ParseException e) {
+                Log.printStackTrace(e);
+            }
+            item.setTitle(Html.fromHtml(post.getString("title"))
+                    .toString());
+            item.setUrl(post.getString("URL"));
+            item.setContent(post.getString("content"));
+            item.setCommentCount(post.getJSONObject("discussion").getLong("comment_count"));
+            item.setFeaturedImageUrl(post.getString("featured_image"));
+
+            //Set the thumbnail and establish the ID of the post thumbnail
+            long thumbId = -1;
+            if (!post.isNull("post_thumbnail")) {
+                thumbId = post.getJSONObject("post_thumbnail").getLong("ID");
+                item.setThumbnailUrl(post.getJSONObject("post_thumbnail").getString("URL"));
+            }
+
+            if (post.has("attachments") && post.getJSONObject("attachments").names() != null) {
+                JSONObject attachments = post.getJSONObject("attachments");
+                for (int i = 0; i < attachments.names().length(); i++) {
+                    JSONObject attachment = attachments.getJSONObject(attachments.names().getString(i));
+                    String thumbnail = (attachment.has("thumbnails") &&
+                            attachment.getJSONObject("thumbnails").has("thumbnail")) ?
+                            attachment.getJSONObject("thumbnails").getString("thumbnail") : null;
+
+                    String title = attachment.has("title") ? attachment.getString("title") : null;
+                    MediaAttachment mediaAttachment = new MediaAttachment(attachment.getString("URL"), attachment.getString("mime_type"), thumbnail, title);
+                    item.addAttachment(mediaAttachment);
+
+                    //We obtained a thumbnail ID earlier. And set a thumbnail image earlier
+                    //If a smaller thumbnail is available (thumbnail of thumbnail) we'll use it.
+                    if (attachment.getLong("ID") == thumbId &&
+                            attachment.has("thumbnails") &&
+                            attachment.getJSONObject("thumbnails").has("thumbnail")) {
+                        item.setThumbnailUrl(attachment.getJSONObject("thumbnails").getString("thumbnail"));
+                    }
+                }
+
+            }
+
+            //If there are tags, save the first one
+            JSONObject tags = post.getJSONObject("tags");
+            if (tags != null && tags.names() != null && tags.names().length() > 0)
+                item.setTag(tags.getJSONObject(tags.names().getString(0)).getString("slug"));
+
+            item.setPostCompleted();
+
+            return item;
+        }
+    }
+
+}
