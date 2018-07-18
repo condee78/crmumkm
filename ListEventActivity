@@ -23,6 +23,7 @@ import com.suupahiro.crmumkm.providers.wordpress.api.WordpressCategoriesLoader;
 import com.suupahiro.crmumkm.providers.wordpress.api.WordpressGetTaskInfo;
 import com.suupahiro.crmumkm.providers.wordpress.api.WordpressPostsLoader;
 import com.suupahiro.crmumkm.providers.wordpress.api.WordpressPostsTask;
+import com.suupahiro.crmumkm.providers.wordpress.ui.WordpressDetailActivity;
 import com.suupahiro.crmumkm.util.Helper;
 import com.suupahiro.crmumkm.util.Log;
 import com.suupahiro.crmumkm.util.cRecyclerTouchListener;
@@ -93,11 +94,17 @@ public class ListEventActivity extends AppCompatActivity {
         recyclerView.addOnItemTouchListener(new cRecyclerTouchListener(getApplicationContext(), recyclerView, new cRecyclerTouchListener.ClickListener() {
             @Override
             public void onClick(View view, int position) {
-                Event movie = eventList.get(position);
-                Toast.makeText(getApplicationContext(), movie.getTitle() + " is selected!", Toast.LENGTH_SHORT).show();
-                //Intent intent = new Intent(mAct, DetailEventActivity.class);
-                //startActivity(intent);
-                //startActivity(new Intent(mAct, DetailEventActivity.class));
+
+                PostItem newsData = mInfo.posts.get(position);
+                //Event movie = eventList.get(position);
+                //Toast.makeText(getApplicationContext(), movie.getTitle() + " is selected!", Toast.LENGTH_SHORT).show();
+
+                Intent intent = new Intent(mAct, DetailEventActivity.class);
+                intent.putExtra(DetailEventActivity.EXTRA_POSTITEM, newsData);
+                intent.putExtra(DetailEventActivity.EXTRA_API_BASE, arguments[0]);
+
+                startActivity(intent);
+
             }
 
             @Override
@@ -208,8 +215,15 @@ public class ListEventActivity extends AppCompatActivity {
             super.onPostExecute(result);
             //Event movie = new Event(mInfo.posts.get(1).getTitle(),mInfo.posts.get(1).getAuthor(), "2015");
             if (result != null) {
-                Event movie = new Event(result.get(1).getTitle(), result.get(1).getAuthor(), "2018");
-                eventList.add(movie);
+                mInfo.posts = result;
+                for(int i = 0; i <= result.size(); i++ )
+                {
+                    Event  dataEvent = new Event(result.get(i).getTitle(), result.get(i).getAuthor(), "2018" );
+                    eventList.add(dataEvent);
+
+                }
+                //Event movie = new Event(result.get(1).getTitle(), result.get(1).getAuthor(), "2018");
+                //eventList.add(movie);
 
                 mAdapter.notifyDataSetChanged();
             }
